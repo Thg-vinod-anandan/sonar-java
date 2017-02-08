@@ -24,6 +24,7 @@ import com.google.common.collect.Maps;
 import org.sonar.java.se.constraint.Constraint;
 import org.sonar.java.se.symbolicvalues.BinarySymbolicValue;
 import org.sonar.java.se.symbolicvalues.SymbolicValue;
+import org.sonar.java.se.xproc.MethodYield;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
@@ -112,6 +113,10 @@ public class ExplodedGraph {
 
     public void addParent(Node node, @Nullable MethodYield methodYield) {
       parents.putIfAbsent(node, methodYield);
+    }
+
+    public boolean onHappyPath() {
+      return happyPath;
     }
 
     @Nullable
