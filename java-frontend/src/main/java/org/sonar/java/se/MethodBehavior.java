@@ -20,7 +20,10 @@
 package org.sonar.java.se;
 
 import com.google.common.collect.ImmutableList;
+import org.sonar.java.collections.PCollections;
+import org.sonar.java.collections.PMap;
 import org.sonar.java.resolve.JavaSymbol;
+import org.sonar.java.se.constraint.Constraint;
 import org.sonar.java.se.symbolicvalues.SymbolicValue;
 import org.sonar.plugins.java.api.semantic.Symbol;
 
@@ -43,11 +46,15 @@ public class MethodBehavior {
   }
 
   public void createYield(ExplodedGraph.Node node) {
-    MethodYield yield = new MethodYield(parameters.size(), ((JavaSymbol.MethodJavaSymbol) methodSymbol).isVarArgs(), node, this);
+    MethodYield yield = new MethodYield(((JavaSymbol.MethodJavaSymbol) methodSymbol).isVarArgs(), node, this);
     yield.exception = !node.happyPath;
 
-    for (int i = 0; i < yield.parametersConstraints.length; i++) {
-      yield.parametersConstraints[i] = node.programState.getConstraint(parameters.get(i));
+    for (int i = 0; i < parameters.size(); i++) {
+      PMap<Class<? extends Constraint>, Constraint> constraints = node.programState.getConstraints(parameters.get(i));
+      if(constraints == null) {
+        constraints = PCollections.emptyMap();
+      }
+      yield.parametersConstraints.add(constraints);
     }
 
     SymbolicValue resultSV = node.programState.exitValue();
@@ -60,7 +67,7 @@ public class MethodBehavior {
         yield.exception = true;
       } else {
         yield.resultIndex = parameters.indexOf(resultSV);
-        yield.resultConstraint = node.programState.getConstraint(resultSV);
+        yield.resultConstraint = node.programState.getConstraints(resultSV);
       }
     }
 

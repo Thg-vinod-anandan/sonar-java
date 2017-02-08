@@ -26,7 +26,6 @@ import org.sonar.check.Rule;
 import org.sonar.java.se.CheckerContext;
 import org.sonar.java.se.FlowComputation;
 import org.sonar.java.se.ProgramState;
-import org.sonar.java.se.constraint.Constraint;
 import org.sonar.java.se.constraint.ObjectConstraint;
 import org.sonar.java.se.symbolicvalues.SymbolicValue;
 import org.sonar.plugins.java.api.JavaFileScannerContext;
@@ -77,7 +76,7 @@ public class NullDereferenceCheck extends SECheck {
 
   private ProgramState checkConstraint(CheckerContext context, Tree syntaxNode, SymbolicValue currentVal) {
     ProgramState programState = context.getState();
-    Constraint constraint = programState.getConstraint(currentVal);
+    ObjectConstraint constraint = programState.getConstraint(currentVal, ObjectConstraint.class);
     if (constraint != null && constraint.isNull()) {
       String symbolName = SyntaxTreeNameFinder.getName(syntaxNode);
       String message = "NullPointerException might be thrown as '" + symbolName + "' is nullable here";
@@ -90,10 +89,10 @@ public class NullDereferenceCheck extends SECheck {
       reportIssue(syntaxNode, message, ImmutableSet.of(flow));
       return null;
     }
-    constraint = programState.getConstraint(currentVal);
+    constraint = programState.getConstraint(currentVal, ObjectConstraint.class);
     if (constraint == null) {
       // We dereferenced the target value for the member select, so we can assume it is not null when not already known
-      return programState.addConstraint(currentVal, ObjectConstraint.notNull());
+      return programState.addConstraint(currentVal, ObjectConstraint.NOT_NULL);
     }
     return programState;
   }
@@ -128,8 +127,8 @@ public class NullDereferenceCheck extends SECheck {
     if (syntaxNode.is(Tree.Kind.METHOD_INVOCATION) && isAnnotatedCheckForNull((MethodInvocationTree) syntaxNode)) {
       Preconditions.checkNotNull(val);
       List<ProgramState> states = new ArrayList<>();
-      states.addAll(val.setConstraint(context.getState(), ObjectConstraint.nullConstraint()));
-      states.addAll(val.setConstraint(context.getState(), ObjectConstraint.notNull()));
+      states.addAll(val.setConstraint(context.getState(), ObjectConstraint.NULL));
+      states.addAll(val.setConstraint(context.getState(), ObjectConstraint.NOT_NULL));
       return states;
     }
     return Lists.newArrayList(context.getState());

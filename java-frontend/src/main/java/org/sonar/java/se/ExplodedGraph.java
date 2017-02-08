@@ -20,7 +20,6 @@
 package org.sonar.java.se;
 
 import com.google.common.collect.Maps;
-
 import org.sonar.java.se.constraint.Constraint;
 import org.sonar.java.se.symbolicvalues.BinarySymbolicValue;
 import org.sonar.java.se.symbolicvalues.SymbolicValue;
@@ -85,10 +84,12 @@ public class ExplodedGraph {
     public void setParent(@Nullable Node parent, @Nullable MethodYield methodYield) {
       if (parent != null) {
         if (parents.isEmpty()) {
-          programState.constraints.forEach((sv, c) -> {
-            if (parent.programState.getConstraint(sv) != c) {
-              addConstraint(sv, c);
-            }
+          programState.constraints.forEach((sv, pmap) -> {
+            pmap.forEach((domain, c) -> {
+              if (parent.programState.getConstraint(sv, domain) != c) {
+                addConstraint(sv, c);
+              }
+            });
           });
           programState.values.forEach((s, sv) -> {
             if (parent.programState.getValue(s) != sv) {

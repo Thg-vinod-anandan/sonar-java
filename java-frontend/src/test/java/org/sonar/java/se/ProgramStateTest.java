@@ -37,10 +37,10 @@ public class ProgramStateTest {
   @Test
   public void testing_equals() {
     SymbolicValue sv1 = new SymbolicValue(1);
-    ProgramState state = ProgramState.EMPTY_STATE.addConstraint(sv1, ObjectConstraint.notNull());
+    ProgramState state = ProgramState.EMPTY_STATE.addConstraint(sv1, ObjectConstraint.NOT_NULL);
     assertThat(state.equals(null)).isFalse();
     assertThat(state.equals(new String())).isFalse();
-    ProgramState state2 = ProgramState.EMPTY_STATE.addConstraint(sv1, ObjectConstraint.notNull());
+    ProgramState state2 = ProgramState.EMPTY_STATE.addConstraint(sv1, ObjectConstraint.NOT_NULL);
     assertThat(state.equals(state2)).isTrue();
   }
 
@@ -84,10 +84,10 @@ public class ProgramStateTest {
   public void testAddingSameConstraintTwice() {
     ProgramState state = ProgramState.EMPTY_STATE;
     SymbolicValue sv3 = new SymbolicValue(3);
-    assertThat(state.getConstraint(sv3)).isNull();
-    state = state.addConstraint(sv3, ObjectConstraint.notNull());
-    assertThat(state.getConstraint(sv3)).isEqualTo(ObjectConstraint.notNull());
-    ProgramState next = state.addConstraint(sv3, ObjectConstraint.notNull());
+    assertThat(state.getConstraint(sv3, ObjectConstraint.class)).isNull();
+    state = state.addConstraint(sv3, ObjectConstraint.NOT_NULL);
+    assertThat(state.getConstraint(sv3, ObjectConstraint.class)).isEqualTo(ObjectConstraint.NOT_NULL);
+    ProgramState next = state.addConstraint(sv3, ObjectConstraint.NOT_NULL);
     assertThat(next).isSameAs(state);
   }
 }

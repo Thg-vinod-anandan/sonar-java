@@ -25,6 +25,7 @@ import com.google.common.collect.Lists;
 
 import org.sonar.java.se.checks.SyntaxTreeNameFinder;
 import org.sonar.java.se.constraint.Constraint;
+import org.sonar.java.se.constraint.ObjectConstraint;
 import org.sonar.java.se.symbolicvalues.BinarySymbolicValue;
 import org.sonar.java.se.symbolicvalues.SymbolicValue;
 import org.sonar.plugins.java.api.JavaFileScannerContext;
@@ -212,7 +213,8 @@ public class FlowComputation {
       .findFirst();
     if (learnedAssociation.isPresent()) {
       LearnedAssociation la = learnedAssociation.get();
-      Constraint constraint = parent.programState.getConstraint(la.symbolicValue());
+      // FIXME: reduced to object constraint but this utterly wrong
+      Constraint constraint = parent.programState.getConstraint(la.symbolicValue(), ObjectConstraint.class);
       String message = constraint == null ? "..." : String.format("'%s' is assigned %s.", la.symbol().name(), constraint.valueAsString());
       flow.add(location(parent, message));
       return parent.programState.getLastEvaluated();

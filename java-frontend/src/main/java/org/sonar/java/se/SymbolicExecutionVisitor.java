@@ -25,6 +25,8 @@ import com.google.common.collect.Lists;
 import org.sonar.api.utils.log.Logger;
 import org.sonar.api.utils.log.Loggers;
 import org.sonar.java.ast.visitors.SubscriptionVisitor;
+import org.sonar.java.collections.PCollections;
+import org.sonar.java.collections.PMap;
 import org.sonar.java.resolve.Flags;
 import org.sonar.java.resolve.JavaSymbol;
 import org.sonar.java.se.constraint.BooleanConstraint;
@@ -161,17 +163,21 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
     private MethodBehavior createIsEmptyOrBlankMethodBehavior(Symbol.MethodSymbol symbol, Constraint constraint) {
       MethodBehavior behavior;
       behavior = new MethodBehavior(symbol);
-      MethodYield nullYield = new MethodYield(symbol.parameterTypes().size(), false);
+      MethodYield nullYield = new MethodYield(false);
       nullYield.exception = false;
-      nullYield.parametersConstraints[0] = ObjectConstraint.nullConstraint();
-      nullYield.resultConstraint = constraint;
+      nullYield.parametersConstraints.add(pmapForConstraint(ObjectConstraint.NULL));
+      nullYield.resultConstraint = pmapForConstraint(constraint);
       behavior.addYield(nullYield);
-      MethodYield notNullYield = new MethodYield(symbol.parameterTypes().size(), false);
+      MethodYield notNullYield = new MethodYield(false);
       notNullYield.exception = false;
-      notNullYield.parametersConstraints[0] = ObjectConstraint.notNull();
+      notNullYield.parametersConstraints.add(pmapForConstraint(ObjectConstraint.NOT_NULL));
       behavior.addYield(notNullYield);
       behavior.completed();
       return behavior;
+    }
+
+    private PMap<Class<? extends Constraint>, Constraint> pmapForConstraint(Constraint constraint) {
+      return PCollections.<Class<? extends Constraint>, Constraint>emptyMap().put(constraint.getClass(), constraint);
     }
 
     /**
@@ -181,16 +187,22 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
      */
     private MethodBehavior createRequireNonNullBehavior(Symbol.MethodSymbol symbol) {
       MethodBehavior behavior = new MethodBehavior(symbol);
-      MethodYield happyYield = new MethodYield(symbol.parameterTypes().size(), false);
+      MethodYield happyYield = new MethodYield(false);
       happyYield.exception = false;
-      happyYield.parametersConstraints[0] = ObjectConstraint.notNull();
+      happyYield.parametersConstraints.add(pmapForConstraint(ObjectConstraint.NOT_NULL));
+      for (int i = 1; i < symbol.parameterTypes().size(); i++) {
+        happyYield.parametersConstraints.add(PCollections.emptyMap());
+      }
       happyYield.resultIndex = 0;
-      happyYield.resultConstraint = happyYield.parametersConstraints[0];
+      happyYield.resultConstraint = happyYield.parametersConstraints.get(0);
       behavior.addYield(happyYield);
 
-      MethodYield exceptionalYield = new MethodYield(symbol.parameterTypes().size(), false);
+      MethodYield exceptionalYield = new MethodYield(false);
       exceptionalYield.exception = true;
-      exceptionalYield.parametersConstraints[0] = ObjectConstraint.nullConstraint();
+      exceptionalYield.parametersConstraints.add(pmapForConstraint(ObjectConstraint.NULL));
+      for (int i = 1; i < symbol.parameterTypes().size(); i++) {
+        exceptionalYield.parametersConstraints.add(PCollections.emptyMap());
+      }
       behavior.addYield(exceptionalYield);
 
       behavior.completed();
@@ -204,21 +216,22 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
      */
     private MethodBehavior createIsNullBehavior(Symbol.MethodSymbol symbol) {
       boolean isNull = "isNull".equals(symbol.name());
-      ObjectConstraint<ObjectConstraint.Status> trueConstraint = isNull ? ObjectConstraint.nullConstraint() : ObjectConstraint.notNull();
-      ObjectConstraint<ObjectConstraint.Status> falseConstraint = isNull ? ObjectConstraint.notNull() : ObjectConstraint.nullConstraint();
+
+      ObjectConstraint trueConstraint = isNull ? ObjectConstraint.NULL : ObjectConstraint.NOT_NULL;
+      ObjectConstraint falseConstraint = isNull ? ObjectConstraint.NOT_NULL : ObjectConstraint.NULL;
 
       MethodBehavior behavior = new MethodBehavior(symbol);
 
-      MethodYield trueYield = new MethodYield(symbol.parameterTypes().size(), false);
+      MethodYield trueYield = new MethodYield(false);
       trueYield.exception = false;
-      trueYield.parametersConstraints[0] = trueConstraint;
-      trueYield.resultConstraint = BooleanConstraint.TRUE;
+      trueYield.parametersConstraints.add(pmapForConstraint(trueConstraint));
+      trueYield.resultConstraint = pmapForConstraint(BooleanConstraint.TRUE);
       behavior.addYield(trueYield);
 
-      MethodYield falseYield = new MethodYield(symbol.parameterTypes().size(), false);
+      MethodYield falseYield = new MethodYield(false);
       falseYield.exception = false;
-      falseYield.parametersConstraints[0] = falseConstraint;
-      falseYield.resultConstraint = BooleanConstraint.FALSE;
+      falseYield.parametersConstraints.add(pmapForConstraint(falseConstraint));
+      falseYield.resultConstraint = pmapForConstraint(BooleanConstraint.FALSE);
       behavior.addYield(falseYield);
 
       behavior.completed();
@@ -227,10 +240,10 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
 
     private MethodBehavior createGuavaPreconditionsBehavior(Symbol.MethodSymbol symbol, boolean isCheckNotNull) {
       MethodBehavior behavior = new MethodBehavior(symbol);
-      MethodYield happyPathYield = new MethodYield(symbol.parameterTypes().size(), ((JavaSymbol.MethodJavaSymbol) symbol).isVarArgs());
+      MethodYield happyPathYield = new MethodYield(((JavaSymbol.MethodJavaSymbol) symbol).isVarArgs());
       happyPathYield.exception = false;
-      happyPathYield.parametersConstraints[0] = isCheckNotNull ? ObjectConstraint.notNull() : BooleanConstraint.TRUE;
-      happyPathYield.resultConstraint = isCheckNotNull ? happyPathYield.parametersConstraints[0] : null;
+      happyPathYield.parametersConstraints.add(pmapForConstraint(isCheckNotNull ? ObjectConstraint.NOT_NULL : BooleanConstraint.TRUE));
+      happyPathYield.resultConstraint = isCheckNotNull ? happyPathYield.parametersConstraints.get(0) : null;
       happyPathYield.resultIndex = isCheckNotNull ? 0 : -1;
       behavior.addYield(happyPathYield);
 

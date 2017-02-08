@@ -31,6 +31,7 @@ import org.sonar.java.resolve.SemanticModel;
 import org.sonar.java.se.checks.NullDereferenceCheck;
 import org.sonar.java.se.checks.SECheck;
 import org.sonar.java.se.constraint.BooleanConstraint;
+import org.sonar.java.se.constraint.ObjectConstraint;
 import org.sonar.plugins.java.api.JavaFileScannerContext;
 import org.sonar.plugins.java.api.semantic.Symbol;
 import org.sonar.plugins.java.api.tree.CompilationUnitTree;
@@ -95,21 +96,21 @@ public class SymbolicExecutionVisitorTest {
     MethodYield trueResult = trueResults.get(0);
 
     // 'a' has constraint "null"
-    assertThat(trueResult.parametersConstraints[0].isNull()).isTrue();
+    assertThat(((ObjectConstraint) trueResult.parametersConstraints.get(0).get(ObjectConstraint.class)).isNull()).isTrue();
     // no constraint on 'b'
-    assertThat(trueResult.parametersConstraints[1]).isNull();
+    assertThat(trueResult.parametersConstraints.get(1)).isNull();
     // result SV is a different SV than 'a' and 'b'
     assertThat(trueResult.resultIndex).isEqualTo(-1);
 
     List<MethodYield> falseResults = yields.stream().filter(my -> BooleanConstraint.FALSE.equals(my.resultConstraint)).collect(Collectors.toList());
     assertThat(falseResults).hasSize(2);
     // for both "False" results, 'a' has the constraint "not null"
-    assertThat(falseResults.stream().filter(my -> !my.parametersConstraints[0].isNull()).count()).isEqualTo(2);
+    assertThat(falseResults.stream().filter(my -> !((ObjectConstraint) my.parametersConstraints.get(0).get(ObjectConstraint.class)).isNull()).count()).isEqualTo(2);
     // 1) 'b' has constraint "false", result is 'b'
-    assertThat(falseResults.stream().filter(my -> BooleanConstraint.FALSE.equals(my.parametersConstraints[1]) && my.resultIndex == 1).count()).isEqualTo(1);
+    assertThat(falseResults.stream().filter(my -> BooleanConstraint.FALSE.equals(my.parametersConstraints.get(1).get(BooleanConstraint.class)) && my.resultIndex == 1).count()).isEqualTo(1);
 
     // 2) 'b' is "true", result is a different SV than 'a' and 'b'
-    assertThat(falseResults.stream().filter(my -> BooleanConstraint.TRUE.equals(my.parametersConstraints[1]) && my.resultIndex == -1).count()).isEqualTo(1);
+    assertThat(falseResults.stream().filter(my -> BooleanConstraint.TRUE.equals(my.parametersConstraints.get(1).get(BooleanConstraint.class)) && my.resultIndex == -1).count()).isEqualTo(1);
   }
 
   @Test
@@ -125,16 +126,16 @@ public class SymbolicExecutionVisitorTest {
     MethodBehavior qix = getMethodBehavior(sev, "qix");
     List<MethodYield> qixYield = qix.yields();
     assertThat(qixYield.stream()
-      .filter(y -> !y.parametersConstraints[0].isNull())
+      .filter(y -> y.parametersConstraints.get(0).get(ObjectConstraint.class) != ObjectConstraint.NULL)
       .allMatch(y -> y.exception)).isTrue();
 
     assertThat(qixYield.stream()
-      .filter(y -> y.parametersConstraints[0].isNull() && y.exception)
+      .filter(y -> y.parametersConstraints.get(0).get(ObjectConstraint.class) == ObjectConstraint.NULL && y.exception)
       .count()).isEqualTo(2);
 
     assertThat(qixYield.stream()
       .filter(y -> !y.exception)
-      .allMatch(y -> y.parametersConstraints[0].isNull())).isTrue();
+      .allMatch(y -> y.parametersConstraints.get(0).get(ObjectConstraint.class) == ObjectConstraint.NULL)).isTrue();
   }
 
   @Test
@@ -163,7 +164,7 @@ public class SymbolicExecutionVisitorTest {
     SymbolicExecutionVisitor sev = createSymbolicExecutionVisitor("src/test/files/se/CleanStackWhenRaisingException.java");
     List<MethodYield> yields = sev.behaviorCache.behaviors.values().iterator().next().yields();
     assertThat(yields).hasSize(5);
-    yields.stream().map(y -> y.resultConstraint).filter(Objects::nonNull).forEach(c -> assertThat(c.isNull()).isFalse());
+    yields.stream().map(y -> y.resultConstraint).filter(Objects::nonNull).forEach(c -> assertThat(c.get(ObjectConstraint.class) == ObjectConstraint.NULL).isFalse());
     assertThat(yields.stream().filter(y -> !y.exception).count()).isEqualTo(2);
     List<MethodYield> exceptionalYields = yields.stream().filter(y -> y.exception).collect(Collectors.toList());
     assertThat(exceptionalYields).hasSize(3);
